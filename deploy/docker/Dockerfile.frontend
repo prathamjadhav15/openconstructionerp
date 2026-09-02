@@ -28,7 +28,7 @@ COPY frontend/ .
 # 134 ("JavaScript heap out of memory"). This image had no ceiling at all, so
 # the two-container production layout in docker-compose.prod.yml could not
 # build its frontend. Scoped to this one command, not the stage.
-RUN NODE_OPTIONS=--max-old-space-size=8192 npm run build
+RUN NODE_OPTIONS=--max-old-space-size=7168 npm run build
 
 FROM nginx:alpine
 
