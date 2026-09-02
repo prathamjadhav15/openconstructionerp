@@ -54,7 +54,7 @@ def main() -> int:
         token,
     )
     if not isinstance(list_resp, dict):
-        print(f"unexpected list response: {type(list_resp)}")
+        print(f"unexpectedddd list response: {type(list_resp)}")
         return 1
     for grp in list_resp.get("groups", [])[:1]:
         gk = grp["group_key"]
