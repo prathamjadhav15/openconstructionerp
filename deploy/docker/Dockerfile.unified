@@ -49,7 +49,7 @@
 #
 # A stage that installs a different set defeats the point of this argument. Add
 # extras here, not in a RUN line.
-ARG OE_EXTRAS=server,semantic-clients
+ARG OE_EXTRAS=server,semantic-clients,semantic
 
 # --- Stage: shared backend base --------------------------------------------
 # Everything both images need that does not depend on whether a frontend is
