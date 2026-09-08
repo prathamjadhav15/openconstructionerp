@@ -225,7 +225,11 @@ async def list_projects(
     # Raised cap from 100 → 500 so the Header project switcher can fetch
     # the full list in one call (it calls ``limit=500``). Prior cap caused
     # a 422 that silently wiped the projects dropdown across every page.
-    limit: int = Query(default=50, ge=1, le=500),
+    # Default also raised to 500 (matching the cap): 70+ call sites across
+    # the frontend fetch this endpoint with no limit at all, so a lower
+    # default silently truncated the project list on every page but the
+    # Header switcher, making older projects unopenable with no error.
+    limit: int = Query(default=500, ge=1, le=500),
     status: str | None = Query(
         default=None,
         pattern=r"^(active|archived|template|on_hold|finished|all)$",
