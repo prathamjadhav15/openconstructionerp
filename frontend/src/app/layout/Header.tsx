@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Search, ChevronDown, ChevronRight, LogOut, User, Settings, Menu, MessageSquarePlus, FolderOpen, CheckCircle2, XCircle, Bug, BookOpen, Loader2, Upload, HelpCircle, GraduationCap, Mail, ExternalLink, Github, Sun, Moon, Monitor, Globe } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, LogOut, User, Settings, Menu, MessageSquarePlus, FolderOpen, CheckCircle2, XCircle, Bug, Loader2, Upload, HelpCircle, GraduationCap, Mail, Github, Sun, Moon, Monitor } from 'lucide-react';
 import clsx from 'clsx';
 import { SUPPORTED_LANGUAGES, getLanguageByCode, changeLanguage } from '../i18n';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -27,9 +27,7 @@ import {
 import { APP_VERSION, APP_BUILD_FINGERPRINT } from '@/shared/lib/version';
 import { useToastStore } from '@/stores/useToastStore';
 import { useI18nReady } from '@/shared/lib/useI18nReady';
-import { isTauri, openAppInBrowser, openLink } from '@/shared/lib/desktop';
-import { SupportUsButton } from './SupportUsButton';
-import { SubscribeButton } from './SubscribeButton';
+import { isTauri, openLink } from '@/shared/lib/desktop';
 import { ProjectJourneyButton } from './ProjectJourney';
 import { getRouteIcon } from './routeIcons';
 import { isModuleI18nKey } from '@/modules/_i18n';
@@ -448,14 +446,7 @@ export function Header({ title, onMenuClick }: HeaderProps) {
       {/* Right side — three zones separated by hairline dividers.
           Zone 2: Search · Zone 3: Notifications + Help · Zone 4: Account
           (Upload + Language + User). Each zone has internal `gap-1`,
-          dividers between zones are 1px hairlines.
-
-          SubscribeButton lives in Zone 3 next to HelpMenu (sized to
-          match the Support pill — same h-8 icon-with-label format on
-          desktop, icon-only on mobile). It used to sit absolutely
-          centred across the header but that created awkward visual
-          tension with the project switcher on the left; planted next
-          to Support/Help, the two CTAs read as a coherent cluster. */}
+          dividers between zones are 1px hairlines. */}
       <div className="flex items-center gap-2 shrink-0">
         {/* ── Journey (orientation) ─────────────────────────────────
             Names the lifecycle phase the current screen belongs to and
@@ -505,20 +496,13 @@ export function Header({ title, onMenuClick }: HeaderProps) {
         {/* Hairline divider between Zone 2 and Zone 3. */}
         <div className="hidden sm:block h-4 w-px bg-border-light/70" aria-hidden />
 
-        {/* ── Zone 3 (Notifications + Subscribe + Bug + Help) ──────
-            Order: NotificationBell · What's new · SupportUs · Subscribe · BugReport · Help.
-            The "ask the user for something" CTAs (Support / Subscribe) stay
-            adjacent; Bug + Help sit on the right edge so a user filing a
-            report doesn't have to scan past the marketing CTAs. */}
+        {/* ── Zone 3 (Notifications + Help) ────────────────────────── */}
         <NotificationBell />
         <HeaderNewsButton />
         {/* Building a module is something you do from wherever you noticed the
             platform was missing one, so it lives here rather than in the
             sidebar. Renders nothing for anyone who may not install one. */}
         <ModuleBuilderButton />
-        <SupportUsButton />
-        <SubscribeButton />
-        <BugReportMenu />
         <HelpMenu />
 
         {/* Hairline divider between Zone 3 and Zone 4. */}
@@ -594,7 +578,14 @@ function ThemeToggle() {
    A red dot on the icon flags that errors were captured this session,
    so the user notices the entry point is relevant to them. */
 
-function BugReportMenu() {
+// No longer rendered in the header (removed along with Support us /
+// Subscribe). Kept as a live export rather than deleted: the Postgres
+// migration banner (PostgresMigrationNotice.tsx) dispatches
+// ``oe:open-bug-report`` expecting this menu to be mounted and listening,
+// so deleting it outright would silently strand that "Report a problem"
+// action. `export` (rather than a plain unused declaration) satisfies
+// `noUnusedLocals` without changing any behavior.
+export function BugReportMenu() {
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [open, setOpen] = useState(false);
@@ -878,7 +869,6 @@ function BugReportMenu() {
  *  cleaner than six visually competing buttons. */
 function HelpMenu() {
   const { t } = useTranslation();
-  const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -899,28 +889,6 @@ function HelpMenu() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
-
-  // Open the contact form pre-tagged as "Send Feedback". Mirrors the
-  // pre-consolidation amber-Feedback button (which used to live in the
-  // header). Downloads the in-session error log if there are any
-  // errors so the user can attach it.
-  const handleFeedback = () => {
-    setOpen(false);
-    if (getErrorCount() > 0) {
-      const blob = exportErrorReport();
-      const blobUrl = URL.createObjectURL(blob);
-      const dl = document.createElement('a');
-      dl.href = blobUrl;
-      dl.download = `openconstructionerp-log-${new Date().toISOString().slice(0, 10)}.json`;
-      dl.click();
-      URL.revokeObjectURL(blobUrl);
-    }
-    const params = new URLSearchParams({
-      feedback: 'true',
-      app_version: APP_VERSION,
-    });
-    openLink(`https://openconstructionerp.com/contact.html?${params}`);
-  };
 
   return (
     <div className="relative hidden sm:block" ref={ref} data-testid="header-help-menu">
@@ -959,92 +927,6 @@ function HelpMenu() {
             <GraduationCap size={14} className="text-oe-blue shrink-0" />
             <span className="flex-1 text-left">{t('howto.menu_item', { defaultValue: 'How it works' })}</span>
           </button>
-          <div className="my-1 border-t border-border-light" role="separator" />
-
-          {/* External resources. Documentation points at the official docs
-              site so users land on the maintained guides, not the raw repo. */}
-          <a
-            role="menuitem"
-            href="https://openconstructionerp.com/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
-          >
-            <BookOpen size={14} className="text-content-tertiary shrink-0" />
-            <span className="flex-1">{t('nav.docs', { defaultValue: 'Documentation' })}</span>
-            <ExternalLink size={11} className="text-content-quaternary shrink-0" />
-          </a>
-          <a
-            role="menuitem"
-            href="https://github.com/datadrivenconstruction/OpenConstructionERP"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
-          >
-            <Github size={14} className="text-content-tertiary shrink-0" />
-            <span className="flex-1">{t('nav.github', { defaultValue: 'GitHub repository' })}</span>
-            <ExternalLink size={11} className="text-content-quaternary shrink-0" />
-          </a>
-
-          {/* Desktop only: open the same app in the user's normal web browser.
-              The app window stays open; this just gives people who prefer
-              browser tabs the local address in one click. */}
-          {isTauri && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                void openAppInBrowser().then((result) => {
-                  if (!result.ok) {
-                    addToast({
-                      type: 'warning',
-                      title: t('desktop.open_in_browser_failed', {
-                        defaultValue: 'Could not open your browser',
-                      }),
-                      message: result.reason,
-                    });
-                  }
-                });
-              }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
-            >
-              <Globe size={14} className="text-content-tertiary shrink-0" />
-              <span className="flex-1 text-left">
-                {t('desktop.open_in_browser', { defaultValue: 'Open in your browser' })}
-              </span>
-              <ExternalLink size={11} className="text-content-quaternary shrink-0" />
-            </button>
-          )}
-
-          <div className="my-1 border-t border-border-light" role="separator" />
-
-          {/* Feedback / report flows */}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleFeedback}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
-          >
-            <MessageSquarePlus size={14} className="text-content-tertiary shrink-0" />
-            <span>{t('feedback.title', { defaultValue: 'Send feedback' })}</span>
-          </button>
-          {/* Bug-reporting lives in the dedicated Bug menu (the bug-icon button
-              next to this one), which already offers a pre-filled GitHub issue,
-              the web form, an email channel and a log download. Keeping those
-              flows out of here leaves Help for docs and general feedback and
-              gives bug reporting a single, obvious home. */}
-          <a
-            role="menuitem"
-            href="mailto:info@datadrivenconstruction.io?subject=OpenConstructionERP%20Issue%20Report"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
-          >
-            <Mail size={14} className="text-content-tertiary shrink-0" />
-            <span>{t('header.email_issues', { defaultValue: 'Email the team' })}</span>
-          </a>
         </div>
       )}
     </div>

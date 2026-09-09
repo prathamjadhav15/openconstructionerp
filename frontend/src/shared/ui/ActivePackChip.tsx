@@ -56,7 +56,7 @@ export function ActivePackChip({ className = '' }: ActivePackChipProps) {
   const applied = data.installed.find((p) => p.slug === data.active_slug) ?? null;
 
   const base =
-    'inline-flex max-w-[13rem] items-center gap-1.5 rounded-full px-2 py-1 text-xs transition-colors';
+    'inline-flex min-w-0 max-w-[13rem] items-center gap-1.5 rounded-full px-2 py-1 text-xs transition-colors';
 
   if (!applied) {
     return (

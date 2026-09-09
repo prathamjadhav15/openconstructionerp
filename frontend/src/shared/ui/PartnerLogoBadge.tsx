@@ -75,12 +75,12 @@ export function PartnerLogoBadge({ variant, className = '' }: PartnerLogoBadgePr
   if (variant === 'nav') {
     return (
       <div
-        className={`inline-flex items-center gap-2 rounded-full bg-surface-secondary/60 px-2.5 py-1 text-xs text-content-secondary backdrop-blur ${className}`}
+        className={`inline-flex min-w-0 max-w-[16rem] items-center gap-2 rounded-full bg-surface-secondary/60 px-2.5 py-1 text-xs text-content-secondary backdrop-blur ${className}`}
         data-testid="partner-logo-nav"
       >
         <Link
           to={PACKS_ROUTE}
-          className="inline-flex items-center gap-1.5 hover:text-content-primary"
+          className="inline-flex min-w-0 items-center gap-1.5 hover:text-content-primary"
           title={m.branding.powered_by_text}
         >
           <PackEmblem pack={m} size={20} />
