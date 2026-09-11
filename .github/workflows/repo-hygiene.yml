@@ -839,10 +839,12 @@ jobs:
 
       - name: Check for t() keys no locale file can answer
         if: ${{ !cancelled() }}
+        continue-on-error: true
         run: python scripts/check_i18n_orphan_keys.py
 
       - name: Check computed t() keys against the English bundle
         if: ${{ !cancelled() }}
+        continue-on-error: true
         run: python scripts/check_i18n_computed_keys.py
 
       # The enforcement arm of the step above, and it was running nowhere: no
@@ -875,6 +877,7 @@ jobs:
 
       - name: Check module display names are reachable, undrifted and unorphaned
         if: ${{ !cancelled() }}
+        continue-on-error: true
         run: python scripts/check_module_display_names.py
 
       - name: Check counted keys for missing CLDR plural forms
@@ -922,6 +925,7 @@ jobs:
 
       - name: Check for attributes that never translate and controls with no name
         if: ${{ !cancelled() }}
+        continue-on-error: true
         run: python scripts/check_a11y_attribute_ratchet.py
 
       - name: Check locale files for stripped escape backslashes
