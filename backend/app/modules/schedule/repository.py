@@ -98,7 +98,7 @@ class ActivityRepository:
         schedule_id: uuid.UUID,
         *,
         offset: int = 0,
-        limit: int = 1000,
+        limit: int | None = 1000,
     ) -> tuple[list[Activity], int]:
         """List activities for a schedule in display order. Returns (activities, total).
 
@@ -107,6 +107,11 @@ class ActivityRepository:
         The order is decided here rather than by the caller because this read
         is paginated: a client that re-sorts the rows it was handed only
         rearranges one page. See :func:`~app.modules.schedule.ordering.activity_order_terms`.
+
+        ``limit=None`` fetches every activity, unpaged - for callers (Gantt,
+        CPM) that operate over the whole schedule rather than one page of it.
+        A fixed numeric "large enough" limit silently drops activities again
+        once a schedule outgrows it.
         """
         base = select(Activity).where(Activity.schedule_id == schedule_id)
 
@@ -115,15 +120,13 @@ class ActivityRepository:
         total = (await self.session.execute(count_stmt)).scalar_one()
 
         # Fetch in canonical display order - skip heavy relationships
-        stmt = (
-            base.options(
-                noload(Activity.children),
-                noload(Activity.work_orders),
-            )
-            .order_by(*activity_order_terms())
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = base.options(
+            noload(Activity.children),
+            noload(Activity.work_orders),
+        ).order_by(*activity_order_terms())
+        stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         activities = list(result.scalars().all())
 

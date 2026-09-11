@@ -1909,7 +1909,7 @@ class ScheduleService:
         project_region = project.region if project else None
         today = datetime.now(UTC).date()
 
-        activities, _ = await self.activity_repo.list_for_schedule(schedule_id)
+        activities, _ = await self.activity_repo.list_for_schedule(schedule_id, limit=None)
 
         gantt_activities: list[GanttActivity] = []
         completed = 0
@@ -2759,7 +2759,7 @@ class ScheduleService:
         """
         await self.get_schedule(schedule_id)
 
-        activities, count = await self.activity_repo.list_for_schedule(schedule_id)
+        activities, count = await self.activity_repo.list_for_schedule(schedule_id, limit=None)
         if count == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
