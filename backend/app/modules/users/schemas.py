@@ -173,6 +173,11 @@ class FirstRunResponse(BaseModel):
     this is ``False`` (production installs with ``SEED_DEMO=false`` or a
     persisted "no demo" first-run choice), so it never offers a demo sign-in
     the server would reject - and never silently creates a demo account."""
+    frappe_sso_enabled: bool = False
+    """Whether an admin has fully configured "Sign in with Frappe" (see
+    app/modules/sso). The login page shows/hides its Frappe button on this -
+    read fresh from the database on every call, no caching, so toggling the
+    setting on the Settings page takes effect immediately."""
 
 
 # ── User CRUD ──────────────────────────────────────────────────────────────

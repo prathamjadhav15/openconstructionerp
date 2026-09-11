@@ -24,6 +24,28 @@ import { safeNextPath } from './nextPath';
 import { SUPPORTED_LANGUAGES } from '@/app/i18n';
 import { useThemeStore } from '@/stores/useThemeStore';
 
+/** English fallbacks for every ?sso_error= code the backend's Frappe OAuth
+ *  flow (app/modules/sso/router.py) or FrappeSsoCallback.tsx can append to
+ *  the /login redirect. Used as the i18n defaultValue and as the plain
+ *  fallback when a translation key is somehow missing. */
+const SSO_ERROR_FALLBACKS: Record<string, string> = {
+  not_configured: 'Sign in with Frappe is not available on this server.',
+  denied: 'You cancelled sign-in with Frappe.',
+  missing_params: 'Sign-in with Frappe was interrupted. Please try again.',
+  state_invalid: 'Your sign-in attempt expired. Please try again.',
+  state_expired: 'Your sign-in attempt expired. Please try again.',
+  idp_unreachable: 'Could not reach the Frappe server. Please try again in a moment.',
+  idp_no_email: "Your Frappe account has no e-mail address, so it can't sign in here.",
+  account_inactive: 'This account is disabled. Contact an administrator.',
+  registration_closed: 'Self-registration is disabled. Contact an administrator.',
+  pending_approval: 'Your account was created and is waiting for administrator approval.',
+  rate_limited: 'Too many attempts. Please wait a minute and try again.',
+  handoff_expired: 'Your sign-in link expired. Please try signing in again.',
+  handoff_reused: 'Your sign-in link was already used. Please try signing in again.',
+  handoff_invalid: 'Your sign-in link is invalid. Please try signing in again.',
+  default: 'Sign-in with Frappe failed. Please try again.',
+};
+
 /* Segmented theme switch (Light / Dark / System) for the login page. */
 function ThemeSwitch() {
   const { t } = useTranslation();
@@ -85,6 +107,7 @@ export function LoginPage() {
   );
   const [langOpen, setLangOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [frappeSsoEnabled, setFrappeSsoEnabled] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
 
   // Desktop first-run: when running inside the Tauri shell with no stored
@@ -108,6 +131,42 @@ export function LoginPage() {
     setEmail('');
     setPassword('');
     setError('');
+  }, []);
+
+  // Probe whether an admin has configured "Sign in with Frappe" (Settings ->
+  // Single Sign-On). Public endpoint, best-effort: a failed probe just keeps
+  // the button hidden rather than surfacing an error on page load. Unlike
+  // the desktop bootstrap effect above, this always runs (not gated on
+  // isTauri) since the button is a normal web-login affordance.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/auth/first-run', { headers: { Accept: 'application/json' } });
+        if (!res.ok) return;
+        const data = (await res.json()) as { frappe_sso_enabled?: boolean };
+        if (!cancelled) setFrappeSsoEnabled(data.frappe_sso_enabled === true);
+      } catch {
+        /* stay hidden on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Surface an SSO failure (denied consent, expired state, IdP unreachable,
+  // ...) through the existing error banner. `sso_error` is appended by the
+  // backend's OAuth callback redirect (see app/modules/sso/router.py) or by
+  // FrappeSsoCallback.tsx when the handoff exchange itself fails.
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get('sso_error');
+    if (!code) return;
+    setError(t(`auth.sso_error.${code}`, { defaultValue: SSO_ERROR_FALLBACKS[code] ?? SSO_ERROR_FALLBACKS.default! }));
+    // Mount-only: read once, don't re-trigger on unrelated search-string
+    // churn (e.g. the demo-hint popover doesn't touch the query string, but
+    // future additions might).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Desktop auto-bootstrap. Runs once on mount. On ANY failure it silently
@@ -449,6 +508,25 @@ export function LoginPage() {
                 <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full btn-shimmer">{t('auth.login', 'Sign in')}</Button>
               </div>
             </form>
+
+            {frappeSsoEnabled && (
+              <div className="mt-4 animate-stagger-in" style={{ animationDelay: '420ms' }}>
+                <div className="flex items-center gap-3">
+                  <span className="h-px flex-1 bg-border-light" aria-hidden />
+                  <span className="text-2xs text-content-tertiary">{t('auth.or', { defaultValue: 'or' })}</span>
+                  <span className="h-px flex-1 bg-border-light" aria-hidden />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = `/api/v1/sso/frappe/start/?next=${encodeURIComponent(nextPath)}`;
+                  }}
+                  className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-primary text-sm font-medium text-content-primary transition-all duration-fast ease-oe hover:border-content-tertiary hover:bg-surface-secondary"
+                >
+                  {t('auth.sign_in_with_frappe', { defaultValue: 'Sign in with Frappe' })}
+                </button>
+              </div>
+            )}
 
             <div className="mt-5 border-t border-border-light pt-4 animate-stagger-in" style={{ animationDelay: '460ms' }}>
               <p className="text-center text-sm text-content-secondary">

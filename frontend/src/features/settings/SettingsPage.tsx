@@ -10,6 +10,7 @@ import { RegionalSettings } from './RegionalSettings';
 import { EInvoiceSettings } from './EInvoiceSettings';
 import { ModulesSettings } from './ModulesSettings';
 import { SettingsTeamPanel } from './SettingsTeamPanel';
+import { SettingsSsoPanel } from './SettingsSsoPanel';
 import { WebhookLeads } from './WebhookLeads';
 import { DesktopServerCard } from './DesktopServerCard';
 import VectorStatusCard from './VectorStatusCard';
@@ -46,6 +47,7 @@ import {
   LayoutGrid,
   Users,
   ScrollText,
+  KeyRound,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardFooter, Button, Badge, InfoHint, Skeleton, Breadcrumb, DismissibleInfo, IntroRichText, ConfirmDialog, ModuleGuideButton, CountryFlag } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -1245,7 +1247,7 @@ function DemoLoginAdminRow() {
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 
-type SettingsTab = 'general' | 'dashboard' | 'team' | 'account' | 'regional' | 'einvoice' | 'converters' | 'ai' | 'security' | 'integrations' | 'modules' | 'audit' | 'advanced';
+type SettingsTab = 'general' | 'dashboard' | 'team' | 'account' | 'regional' | 'einvoice' | 'converters' | 'ai' | 'security' | 'sso' | 'integrations' | 'modules' | 'audit' | 'advanced';
 
 interface TabDef {
   id: SettingsTab;
@@ -1275,6 +1277,10 @@ const TABS: readonly TabDef[] = [
   { id: 'converters',   labelKey: 'settings.tab_converters',   defaultLabel: 'Converters',  icon: Layers,   descKey: 'settings.tab_converters_desc',   descDefault: 'DDC converters - installed versions and GitHub sources' },
   { id: 'ai',           labelKey: 'settings.tab_ai',           defaultLabel: 'AI',           icon: Sparkles, descKey: 'settings.tab_ai_desc',           descDefault: 'AI provider and semantic search' },
   { id: 'security',     labelKey: 'settings.tab_security',     defaultLabel: 'Data & Security', icon: ShieldCheck, descKey: 'settings.tab_security_desc', descDefault: 'Where your data lives and what leaves this instance' },
+  // Single sign-on — admin only inside the panel (RequireRole("admin") on
+  // the backend config endpoints); the tab itself stays visible to everyone
+  // like Integrations does, since seeing whether SSO exists isn't privileged.
+  { id: 'sso',          labelKey: 'settings.tab_sso',           defaultLabel: 'Single Sign-On', icon: KeyRound, descKey: 'settings.tab_sso_desc',      descDefault: 'Let people sign in with an external identity provider' },
   { id: 'integrations', labelKey: 'settings.tab_integrations', defaultLabel: 'Integrations', icon: Plug,     descKey: 'settings.tab_integrations_desc', descDefault: 'Slack, Teams, Telegram, webhooks' },
   // Modules — installing and removing backend modules. Visible to everyone
   // (seeing what this instance runs is not privileged), but the toggles are
@@ -1926,6 +1932,13 @@ export function SettingsPage() {
           {activeTab === 'security' && (
             <div className="lg:col-span-2">
               <DataSecurityPanel />
+            </div>
+          )}
+
+          {/* ── SINGLE SIGN-ON ───────────────────────────────────── */}
+          {activeTab === 'sso' && (
+            <div className="lg:col-span-2">
+              <SettingsSsoPanel />
             </div>
           )}
 

@@ -33,7 +33,6 @@ import {
   FileText,
   Calendar,
   Upload,
-  ExternalLink,
   AlertTriangle,
   TrendingUp,
   Users,
@@ -45,11 +44,10 @@ import {
   ChevronUp,
   MapPin,
 } from 'lucide-react';
-import { Card, CardHeader, CardContent, Button, Badge, Skeleton, ActivityFeed as CrossModuleActivityFeed, EmptyState, ModuleHelpButton, ModuleGuideButton, PartnerLogoBadge } from '@/shared/ui';
+import { Card, CardHeader, CardContent, Button, Badge, Skeleton, ActivityFeed as CrossModuleActivityFeed, EmptyState, ModuleHelpButton, ModuleGuideButton } from '@/shared/ui';
 import { dashboardGuide } from './dashboardGuide';
 import { pricedPositions, type PositionCounts } from './pricedPositions';
 import { MultiCurrencyTotal } from '@/shared/ui/MultiCurrencyTotal';
-import { WhatsNewCard } from '@/shared/ui/WhatsNewCard';
 import { DashboardCasesCard } from './DashboardCasesCard';
 import { CompactProjectCard } from './components/CompactProjectCard';
 import { type ProjectPin } from './components/DashboardProjectsMap';
@@ -2623,15 +2621,6 @@ function DashboardPageInner() {
     // takes its own unscoped read, because it is the portfolio panel.
     <DashboardRollupProvider projectIds={scopeProjectIds}>
     <div className="space-y-5 animate-fade-in">
-      {/* Partner co-brand strip - only renders when a partner pack is
-          active (env OE_PARTNER_PACK or first installed). Dismissable
-          per session; reappears on next browser launch. */}
-      <PartnerLogoBadge variant="dashboard" />
-      {/* "What's new in vX.Y.Z" release-notes card. Self-gates on a
-          localStorage `oe_whats_new_seen_<version>` flag so it only
-          appears once per release per browser. Sits above the hero so
-          the user sees release highlights before the dashboard hero. */}
-      <WhatsNewCard />
       {/* ─── 1. Hero · row A - greeting + primary actions ────────────────
           Compressed from the previous 6-row hero (audit 2026-05-11): the
           greeting and the 3 CTAs share a single line on desktop; row B
@@ -2740,42 +2729,6 @@ function DashboardPageInner() {
 
       {/* ─── 2. Hero · row B - thin meta-strip ───────────────────────── */}
       <div className="flex items-center flex-wrap gap-x-4 gap-y-2 pl-2 animate-stagger-in" style={{ animationDelay: '140ms' }}>
-        {/* DDC attribution - slim inline link with tiny logo */}
-        <a
-          href="https://datadrivenconstruction.io/?utm_source=erp"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group/ddc inline-flex items-center gap-1.5 text-[11px] text-content-tertiary hover:text-content-secondary transition-colors"
-        >
-          <img
-            src="/brand/ddc-logo.webp"
-            alt="DataDrivenConstruction"
-            className="h-3.5 w-auto opacity-60 group-hover/ddc:opacity-100 transition-opacity"
-          />
-          <span className="hidden sm:inline">
-            {t('dashboard.developed_by_short', { defaultValue: 'by DataDrivenConstruction' })}
-          </span>
-        </a>
-
-        <span aria-hidden className="h-3 w-px bg-border-light" />
-
-        {/* Open-source pill - slimmer (was a heavy gradient card) */}
-        <a
-          href="https://github.com/datadrivenconstruction/OpenConstructionERP"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group/oss inline-flex items-center gap-2 text-xs font-medium text-content-secondary hover:text-content-primary transition-colors"
-        >
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-          <span>{t('dashboard.open_source_badge', { defaultValue: 'Open-source construction ERP' })}</span>
-          <ExternalLink size={11} className="text-content-quaternary group-hover/oss:text-oe-blue transition-colors" />
-        </a>
-
-        <span aria-hidden className="h-3 w-px bg-border-light" />
-
         {/* System status pills */}
         <SystemStatusSummary
           projects={projects}

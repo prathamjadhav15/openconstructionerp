@@ -28,6 +28,10 @@ export interface FirstRunStatus {
    *  available. Optional for backward compatibility with older servers that
    *  predate the field; the login page treats a missing value as enabled. */
   demo_enabled?: boolean;
+  /** Whether an admin has fully configured "Sign in with Frappe". Optional
+   *  for the same backward-compatibility reason as demo_enabled; a missing
+   *  value is treated as disabled (no button shown). */
+  frappe_sso_enabled?: boolean;
 }
 
 /**

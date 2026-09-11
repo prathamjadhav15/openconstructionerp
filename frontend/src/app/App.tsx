@@ -604,6 +604,9 @@ const OnboardingWizard = lazy(() =>
 const LoginPageNext = lazy(() =>
   import('@/features/auth/LoginPageNext').then((m) => ({ default: m.LoginPageNext }))
 );
+const FrappeSsoCallback = lazy(() =>
+  import('@/features/auth/FrappeSsoCallback').then((m) => ({ default: m.FrappeSsoCallback }))
+);
 const QuickEstimatePage = lazy(() =>
   import('@/features/ai/QuickEstimatePage').then((m) => ({ default: m.QuickEstimatePage }))
 );
@@ -1104,6 +1107,7 @@ export default function App() {
         {/* Auth — public */}
         <Route path="/login" element={isAuthenticated ? <AuthedHome /> : <LoginPage />} />
         <Route path="/login-next" element={isAuthenticated ? <AuthedHome /> : <Suspense fallback={<LoadingScreen />}><LoginPageNext /></Suspense>} />
+        <Route path="/auth/sso/callback" element={<Suspense fallback={<LoadingScreen />}><FrappeSsoCallback /></Suspense>} />
         <Route path="/register" element={isAuthenticated ? <AuthedHome /> : <RegisterPage />} />
         <Route path="/forgot-password" element={isAuthenticated ? <AuthedHome /> : <ForgotPasswordPage />} />
 

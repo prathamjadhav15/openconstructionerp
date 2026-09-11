@@ -55,6 +55,10 @@ export function AppLayout({ title, children }: AppLayoutProps) {
   // name, the browser tab follows the same brand as the sidebar so the whole
   // experience reads as "their" tool. Falls back to OpenConstructionERP.
   const brandName = useBrandingStore((s) => (s.companyName.trim() ? s.companyName.trim() : null));
+  // Same idea for the browser-tab icon: when the workspace has an uploaded
+  // logo (mode='logo'), it replaces the default favicon too. `companyName`
+  // alone (mode='text') has no image to show, so the default icon stays.
+  const brandLogo = useBrandingStore((s) => (s.mode === 'logo' ? s.logoDataUrl : null));
 
   // Count today towards "distinct days the app was opened". This has to run
   // from the shell, unconditionally, and NOT from ReviewPromptCard: if the
@@ -76,6 +80,23 @@ export function AppLayout({ title, children }: AppLayoutProps) {
     document.title = translated ? `${translated} | ${suffix}` : suffix;
     // i18n.language in deps so the tab re-translates on a language switch.
   }, [title, t, i18n.language, brandName]);
+
+  useEffect(() => {
+    // index.html declares a single <link rel="icon">; swap its href (and
+    // `type`, since a mismatched type can make some browsers ignore the
+    // icon) to the uploaded logo, or back to the shipped favicon when
+    // branding is cleared or switched to text-only mode.
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) return;
+    if (brandLogo) {
+      const mime = /^data:([^;]+);/.exec(brandLogo)?.[1];
+      if (mime) link.type = mime;
+      link.href = brandLogo;
+    } else {
+      link.type = 'image/svg+xml';
+      link.href = '/favicon.svg';
+    }
+  }, [brandLogo]);
 
   // Lock body scroll when mobile sidebar is open
   useEffect(() => {

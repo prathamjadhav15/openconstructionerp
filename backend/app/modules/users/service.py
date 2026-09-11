@@ -17,8 +17,16 @@ import os
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import bcrypt
+
+if TYPE_CHECKING:
+    # Deferred: app.modules.sso depends on app.modules.users (for
+    # find_or_provision_frappe_user's return type / _issue_token_pair), so a
+    # top-level import here would be circular. This is type-checking only -
+    # FrappeUserInfo is duck-typed (.subject/.email/.full_name) at runtime.
+    from app.modules.sso.oauth import FrappeUserInfo
 from fastapi import HTTPException, status
 from jose import jwt
 from sqlalchemy import select, update
@@ -769,6 +777,92 @@ class UserService:
 
         return tokens
 
+    async def find_or_provision_frappe_user(self, userinfo: "FrappeUserInfo") -> User:
+        """Find or auto-create a local User for a Frappe-authenticated identity.
+
+        Mirrors :meth:`register`'s role/is_active/closed-mode rules exactly -
+        not just the role rule in isolation - because ``register()`` bundles
+        both under one "how much do we trust a self-registered identity"
+        decision, and an operator running ``closed`` self-registration almost
+        certainly means "no new accounts, full stop," regardless of auth
+        method.
+
+        Does NOT mint tokens - the sso router mints a short-lived handoff
+        token from the returned user; the real token pair is issued later, at
+        handoff-exchange time, via :meth:`_issue_token_pair`.
+
+        ``exc.detail`` on every raised HTTPException here is one of this
+        app's ``sso_error`` codes verbatim (see app/modules/sso/router.py),
+        so the caller can redirect on it directly without re-mapping.
+        """
+        email = userinfo.email.strip().lower()
+
+        user = await self.user_repo.get_by_email(email)
+        if user is not None:
+            if not user.is_active:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account_inactive")
+            meta = dict(user.metadata_ or {})
+            if not meta.get("sso"):
+                meta["sso"] = {
+                    "provider": "frappe",
+                    "subject": userinfo.subject,
+                    "linked_at": datetime.now(UTC).isoformat(),
+                }
+                await self.user_repo.update_fields(user.id, metadata_=meta)
+            return user
+
+        mode = getattr(self.settings, "registration_mode", "admin-approve") or "admin-approve"
+        admin_exists = await self.user_repo.has_admin()
+
+        if mode == "closed" and admin_exists:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_closed")
+
+        default_role = getattr(self.settings, "default_registration_role", "viewer") or "viewer"
+        if default_role not in {"viewer", "editor", "manager"}:
+            default_role = "viewer"
+
+        if not admin_exists:
+            role, is_active = "admin", True
+        else:
+            role, is_active = default_role, mode == "open"
+
+        user = User(
+            email=email,
+            # Random, well-formed, unusable bcrypt hash - same trick as
+            # desktop_bootstrap(). _is_usable_password_hash() correctly reads
+            # this as "no real password", so password-based login and the
+            # password-reset flow both treat this account as SSO-only.
+            hashed_password=hash_password(secrets.token_urlsafe(32)),
+            full_name=userinfo.full_name or email.split("@")[0],
+            role=role,
+            is_active=is_active,
+            metadata_={
+                "sso": {
+                    "provider": "frappe",
+                    "subject": userinfo.subject,
+                    "linked_at": datetime.now(UTC).isoformat(),
+                }
+            },
+        )
+        user = await self.user_repo.create(user)
+
+        await _safe_publish(
+            "users.user.created",
+            {
+                "user_id": str(user.id),
+                "email": user.email,
+                "role": role,
+                "is_active": is_active,
+                "registration_mode": "frappe_sso",
+            },
+            source_module="oe_users",
+        )
+
+        if not is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="pending_approval")
+
+        return user
+
     # ── Desktop first-run / bootstrap ──────────────────────────────────
 
     async def first_run_status(self, *, is_desktop: bool) -> FirstRunResponse:
@@ -802,6 +896,11 @@ class UserService:
         from app.core.demo_login import demo_login_enabled
         from app.core.demo_seed import seed_demo_enabled
 
+        # Cross-module, fresh-DB-read helper (no cache - see sso/service.py's
+        # module docstring) - lets the login page's "Sign in with Frappe"
+        # button track the admin's Settings-page config without a restart.
+        from app.modules.sso.service import is_frappe_sso_enabled
+
         # The login page hides its "Try demo" block unless BOTH hold: a demo
         # account is seeded to sign into AND the admin has not switched the demo
         # login off. Combine them here so the affordance tracks either lever.
@@ -811,6 +910,7 @@ class UserService:
             has_local_account=has_local_account,
             onboarding_completed=onboarding_completed,
             demo_enabled=seed_demo_enabled() and demo_login_enabled(),
+            frappe_sso_enabled=await is_frappe_sso_enabled(self.session),
         )
 
     async def desktop_bootstrap(self) -> TokenResponse:
