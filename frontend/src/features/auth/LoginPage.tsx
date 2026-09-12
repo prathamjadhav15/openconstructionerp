@@ -523,6 +523,11 @@ export function LoginPage() {
                   }}
                   className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-primary text-sm font-medium text-content-primary transition-all duration-fast ease-oe hover:border-content-tertiary hover:bg-surface-secondary"
                 >
+                  <svg width="18" height="18" viewBox="0 0 400 400" fill="none" aria-hidden="true" className="shrink-0">
+                    <rect width="400" height="400" rx="88" fill="#1a1a1a" />
+                    <rect x="142" y="98" width="132" height="40" fill="#fff" />
+                    <path d="M142 190h132v40H182v112h-40V190z" fill="#fff" />
+                  </svg>
                   {t('auth.sign_in_with_frappe', { defaultValue: 'Sign in with Frappe' })}
                 </button>
               </div>
