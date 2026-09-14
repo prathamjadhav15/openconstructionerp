@@ -780,12 +780,15 @@ class UserService:
     async def find_or_provision_frappe_user(self, userinfo: "FrappeUserInfo") -> User:
         """Find or auto-create a local User for a Frappe-authenticated identity.
 
-        Mirrors :meth:`register`'s role/is_active/closed-mode rules exactly -
-        not just the role rule in isolation - because ``register()`` bundles
-        both under one "how much do we trust a self-registered identity"
-        decision, and an operator running ``closed`` self-registration almost
-        certainly means "no new accounts, full stop," regardless of auth
-        method.
+        Mirrors :meth:`register`'s closed-mode rule for deciding *who can get
+        an account at all*, but NOT its is_active gating or its role default:
+        Frappe has already authenticated this identity against a trusted
+        external IdP, so a freshly provisioned SSO user is always active
+        immediately, and always provisioned as ``admin`` - unlike anonymous
+        self-registration (which defaults to a low-privilege role, see
+        ``register()``), every Frappe-authenticated login is treated as a
+        trusted operator of this Open Construction ERP instance. ``closed``
+        mode still blocks new SSO accounts outright, same as self-registration.
 
         Does NOT mint tokens - the sso router mints a short-lived handoff
         token from the returned user; the real token pair is issued later, at
@@ -817,14 +820,11 @@ class UserService:
         if mode == "closed" and admin_exists:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_closed")
 
-        default_role = getattr(self.settings, "default_registration_role", "viewer") or "viewer"
-        if default_role not in {"viewer", "editor", "manager"}:
-            default_role = "viewer"
-
-        if not admin_exists:
-            role, is_active = "admin", True
-        else:
-            role, is_active = default_role, mode == "open"
+        # Every Frappe SSO login is provisioned as admin - the identity is
+        # already vouched for by the connected Frappe instance, so there is
+        # no lesser-privilege default role here (contrast with register()'s
+        # viewer-by-default self-registration path).
+        role = "admin"
 
         user = User(
             email=email,
@@ -835,7 +835,7 @@ class UserService:
             hashed_password=hash_password(secrets.token_urlsafe(32)),
             full_name=userinfo.full_name or email.split("@")[0],
             role=role,
-            is_active=is_active,
+            is_active=True,
             metadata_={
                 "sso": {
                     "provider": "frappe",
@@ -852,14 +852,11 @@ class UserService:
                 "user_id": str(user.id),
                 "email": user.email,
                 "role": role,
-                "is_active": is_active,
+                "is_active": True,
                 "registration_mode": "frappe_sso",
             },
             source_module="oe_users",
         )
-
-        if not is_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="pending_approval")
 
         return user
 
