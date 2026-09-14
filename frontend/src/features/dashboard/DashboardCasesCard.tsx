@@ -122,19 +122,32 @@ interface GalleryShape {
 const GALLERY_BY_SPAN: Record<SpanStep, GalleryShape> = {
   6: {
     count: 17,
-    columns: 'grid-cols-3 md:grid-cols-6 xl:grid-cols-9',
+    // Below `sm` (real phones) this used to stay at the same 3 columns as
+    // the 640-768 tablet band, which put the title in an ~87px-wide tile —
+    // nowhere near enough for a title like "Procure materials & subcontract
+    // packages", so it rendered as "Procure mat..." (the title is a
+    // single-line `truncate`, never two lines, despite the note above).
+    // Dropping the un-prefixed base to 2 columns and inserting `sm:` to
+    // hold the previous 3-column tablet band exactly where it was leaves
+    // the documented `md:`/`xl:` reasoning above untouched — only phones
+    // change. 18 (count+1) still divides evenly by every column count here
+    // (2, 3, 6, 9), so the ladder's "no short last row" invariant holds.
+    columns: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6 xl:grid-cols-9',
     faceClass: 'w-[26%] max-w-[3rem]',
     titleClass: 'text-xs',
   },
   4: {
     count: 11,
-    columns: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6',
+    // Same phone-readability fix as span 6 above: base 3→2 columns. No
+    // separate tablet tier to preserve here since sm: already stepped up to
+    // 4 immediately — 12 (count+1) still divides evenly by 2, 4 and 6.
+    columns: 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6',
     faceClass: 'w-[26%] max-w-[2.75rem]',
     titleClass: 'text-xs',
   },
   3: {
     count: 11,
-    columns: 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6',
+    columns: 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6',
     faceClass: 'w-[30%] max-w-[2.5rem]',
     titleClass: 'text-xs',
   },
@@ -248,46 +261,65 @@ export function DashboardCasesCard() {
       className="rounded-xl border border-oe-blue/30 bg-gradient-to-r from-oe-blue/[0.07] via-oe-blue/[0.03] to-transparent p-4 shadow-xs animate-card-in"
       style={{ animationDelay: '120ms' }}
     >
-      <div className="flex flex-wrap items-start gap-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-oe-blue/10 text-oe-blue ring-1 ring-inset ring-oe-blue/20">
-          <GraduationCap size={20} strokeWidth={1.9} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-content-primary">
-              {t('cases.dashboard_card.title', { defaultValue: 'Start here - learn by example' })}
-            </p>
-            {/* Total library size, so the card advertises the full breadth of
-                guided cases even while it only previews part of it. */}
-            <span className="inline-flex shrink-0 items-center rounded-full bg-oe-blue/10 px-2 py-0.5 text-2xs font-semibold text-oe-blue ring-1 ring-inset ring-oe-blue/20">
-              {t('cases.dashboard_card.total', {
-                defaultValue: '{{count}} cases in total',
-                count: PLAYBOOKS.length,
-              })}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs leading-relaxed text-content-secondary">
-            {roles.length === 1
-              ? t('cases.dashboard_card.body_role', {
-                  defaultValue: 'Guided playbooks picked for a {{role}}, step by step across the modules.',
-                  role: roleLabel,
-                })
-              : roles.length > 1
-                ? t('cases.dashboard_card.body_roles', {
-                    defaultValue:
-                      'Guided playbooks picked for {{roles}}, step by step across the modules.',
-                    roles: roleLabel,
+      {/*
+        Below `sm` this stacks top-to-bottom instead of the single wrapping
+        row it used to be. That row put the ~220px CTA button and the ~90px
+        icon-button cluster on the SAME line as the title block (flex-wrap
+        only moves an item to a new line when it doesn't fit at its
+        flex-basis, and this title block's basis is 0 because it's
+        `flex-1` + `min-w-0`) — leaving the title/chip/description exactly
+        zero room to negotiate for and squeezing it down to the ~65px the
+        button and controls happened not to need, which is what wrapped
+        "Start here - learn by example" and the body copy one or two words
+        per line on a phone (measured in DevTools: the title row's own box
+        computed to 65.7px wide on an iPhone SE viewport).
+        `sm:contents` on the icon+title wrapper below removes it from the
+        box model at `sm:`+ so its two children rejoin the row as direct
+        flex items there, exactly restoring the original side-by-side
+        desktop/tablet layout unchanged; only narrower viewports change.
+      */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4">
+        <div className="flex items-start gap-3 sm:contents">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-oe-blue/10 text-oe-blue ring-1 ring-inset ring-oe-blue/20">
+            <GraduationCap size={20} strokeWidth={1.9} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-content-primary">
+                {t('cases.dashboard_card.title', { defaultValue: 'Start here - learn by example' })}
+              </p>
+              {/* Total library size, so the card advertises the full breadth of
+                  guided cases even while it only previews part of it. */}
+              <span className="inline-flex shrink-0 items-center rounded-full bg-oe-blue/10 px-2 py-0.5 text-2xs font-semibold text-oe-blue ring-1 ring-inset ring-oe-blue/20">
+                {t('cases.dashboard_card.total', {
+                  defaultValue: '{{count}} cases in total',
+                  count: PLAYBOOKS.length,
+                })}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-content-secondary">
+              {roles.length === 1
+                ? t('cases.dashboard_card.body_role', {
+                    defaultValue: 'Guided playbooks picked for a {{role}}, step by step across the modules.',
+                    role: roleLabel,
                   })
-                : t('cases.dashboard_card.body', {
-                    defaultValue:
-                      'Follow a guided playbook from a PDF to a priced, validated estimate, step by step across the modules.',
-                  })}
-          </p>
+                : roles.length > 1
+                  ? t('cases.dashboard_card.body_roles', {
+                      defaultValue:
+                        'Guided playbooks picked for {{roles}}, step by step across the modules.',
+                      roles: roleLabel,
+                    })
+                  : t('cases.dashboard_card.body', {
+                      defaultValue:
+                        'Follow a guided playbook from a PDF to a priced, validated estimate, step by step across the modules.',
+                    })}
+            </p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => navigate('/cases')}
-          className="group inline-flex shrink-0 items-center gap-2 rounded-lg bg-oe-blue px-4 py-2.5 text-sm font-semibold text-content-inverse shadow-sm transition-all hover:bg-oe-blue-hover hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
+          className="group inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-oe-blue px-4 py-2.5 text-sm font-semibold text-content-inverse shadow-sm transition-all hover:bg-oe-blue-hover hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 sm:w-auto"
         >
           {t('cases.dashboard_card.cta_all', {
             defaultValue: 'Browse all {{count}} cases',

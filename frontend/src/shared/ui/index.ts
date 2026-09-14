@@ -24,6 +24,9 @@ export type { BadgeVariant } from './Badge';
 
 export { Card, CardHeader, CardContent, CardFooter } from './Card';
 
+export { ResponsiveTable } from './ResponsiveTable';
+export type { ResponsiveTableProps, ResponsiveTableColumn } from './ResponsiveTable';
+
 export { StatCard } from './StatCard';
 export type { StatCardProps, StatCardTone } from './StatCard';
 

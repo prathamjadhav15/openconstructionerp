@@ -3,7 +3,7 @@
 /** Left-pane category list for the file manager. */
 
 import { useTranslation } from 'react-i18next';
-import { FileText, Image as ImageIcon, Layout, Box, Pencil, Folder, Tag, FileBarChart, PenTool, HardDrive } from 'lucide-react';
+import { FileText, Image as ImageIcon, Layout, Box, Pencil, Folder, Tag, FileBarChart, PenTool, HardDrive, X } from 'lucide-react';
 import clsx from 'clsx';
 import type { FileTreeNode, FileKind } from '../types';
 import { TrashNode } from '@/features/file-trash/TrashNode';
@@ -29,6 +29,16 @@ interface FileTreeProps {
   /** Active project — when set, mounts saved-views rail and routes the
    *  per-project Recycle Bin link to `/files/trash`. */
   projectId?: string | null;
+  /**
+   * Below `md` this tree renders as an off-canvas drawer instead of a
+   * permanent 240px column (which alone ate ~64% of a 375px viewport with
+   * no way to reach the file grid). `mobileOpen` controls the drawer;
+   * `onMobileClose` fires on backdrop click, the drawer's own close
+   * button, and after a category is picked. At `md:` and above these are
+   * unused and the tree is always visible, matching the previous behavior.
+   */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 function fmtBytes(bytes: number): string {
@@ -39,8 +49,21 @@ function fmtBytes(bytes: number): string {
   return `${fmtFixed(bytes / (1024 * 1024 * 1024), 2)} GB`;
 }
 
-export function FileTree({ nodes, selectedId, onSelect, isLoading, projectId }: FileTreeProps) {
+export function FileTree({
+  nodes,
+  selectedId,
+  onSelect,
+  isLoading,
+  projectId,
+  mobileOpen = false,
+  onMobileClose,
+}: FileTreeProps) {
   const { t } = useTranslation();
+
+  const handleSelect = (id: string | null) => {
+    onSelect(id);
+    onMobileClose?.();
+  };
 
   const totalCount = nodes.reduce((acc, n) => acc + n.file_count, 0);
   const totalBytes = nodes.reduce((acc, n) => acc + n.total_bytes, 0);
@@ -66,7 +89,34 @@ export function FileTree({ nodes, selectedId, onSelect, isLoading, projectId }: 
     : [];
 
   return (
-    <aside className="w-60 shrink-0 border-r border-border-light bg-surface-secondary/40 overflow-y-auto">
+    <>
+      {/* Backdrop — mobile only, closes the drawer on outside click. */}
+      {mobileOpen && (
+        <div
+          aria-hidden="true"
+          onClick={onMobileClose}
+          className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm md:hidden"
+        />
+      )}
+      <aside
+        className={clsx(
+          'overflow-y-auto border-r border-border-light bg-surface-secondary/40',
+          // Off-canvas drawer below `md`; permanent 240px column at `md:`+.
+          'fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] transform transition-transform duration-200 ease-oe',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'md:static md:z-auto md:w-60 md:shrink-0 md:translate-x-0',
+        )}
+      >
+        <div className="flex justify-end px-3 pt-3 md:hidden">
+          <button
+            type="button"
+            onClick={onMobileClose}
+            aria-label={t('common.close', { defaultValue: 'Close' })}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-content-tertiary hover:bg-surface-secondary"
+          >
+            <X size={15} />
+          </button>
+        </div>
       {totalBytes > 0 && (
         <div className="px-3 pt-3 pb-3 border-b border-border-light">
           <div className="flex items-center gap-1.5 mb-2 text-2xs font-medium uppercase tracking-wider text-content-tertiary">
@@ -110,7 +160,7 @@ export function FileTree({ nodes, selectedId, onSelect, isLoading, projectId }: 
 
         <button
           type="button"
-          onClick={() => onSelect(null)}
+          onClick={() => handleSelect(null)}
           className={clsx(
             'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm transition-colors',
             selectedId === null
@@ -136,7 +186,7 @@ export function FileTree({ nodes, selectedId, onSelect, isLoading, projectId }: 
             <li key={node.id}>
               <button
                 type="button"
-                onClick={() => onSelect(kind)}
+                onClick={() => handleSelect(kind)}
                 className={clsx(
                   'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm transition-colors',
                   isActive
@@ -176,6 +226,7 @@ export function FileTree({ nodes, selectedId, onSelect, isLoading, projectId }: 
       <div className="mt-2 px-3 pb-3 border-t border-border-light pt-2">
         <TrashNode projectId={projectId ?? null} active={selectedId === 'trash'} />
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

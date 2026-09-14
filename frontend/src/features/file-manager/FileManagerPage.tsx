@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight, HardDrive, UploadCloud, Search, Send, Loader2, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, ChevronRight, HardDrive, UploadCloud, Search, Send, Loader2, ClipboardCheck, FolderTree } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { EmptyState, ModuleGuideButton } from '@/shared/ui';
@@ -142,6 +142,10 @@ export function FileManagerPage() {
     .filter((id) => id.length > 0);
 
   const [selectedKind, setSelectedKind] = useState<FileKind | null>(initialKind);
+  // Below `md` the category tree renders as an off-canvas drawer (see
+  // FileTree) instead of a permanent 240px column, which alone consumed
+  // ~64% of a 375px viewport with no way to reach the file grid.
+  const [mobileTreeOpen, setMobileTreeOpen] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [sort, setSort] = useState<NonNullable<FileFilters['sort']>>(initialSort);
   const [view, setView] = useState<ViewMode>(() => readViewMode());
@@ -867,6 +871,18 @@ export function FileManagerPage() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Category-tree drawer toggle — the tree is off-canvas below
+              `md` (see FileTree), so this is the only way to reach it on
+              a phone/tablet. Hidden at `md:`+ where the tree is a
+              permanent column. */}
+          <button
+            type="button"
+            onClick={() => setMobileTreeOpen(true)}
+            aria-label={t('files.tree.title', { defaultValue: 'Categories' })}
+            className="inline-flex md:hidden items-center gap-1.5 h-9 px-2.5 rounded-lg text-xs font-medium text-content-secondary hover:text-content-primary hover:bg-surface-secondary transition-colors"
+          >
+            <FolderTree size={14} />
+          </button>
           {/* "How it works" guide — concepts + how to upload and feed
               takeoff/BOQ. Sits in the page action cluster; its closing CTA
               opens the upload dialog. */}
@@ -932,6 +948,8 @@ export function FileManagerPage() {
           }}
           isLoading={treeLoading}
           projectId={projectId}
+          mobileOpen={mobileTreeOpen}
+          onMobileClose={() => setMobileTreeOpen(false)}
         />
 
         <main className="flex-1 flex flex-col min-w-0">

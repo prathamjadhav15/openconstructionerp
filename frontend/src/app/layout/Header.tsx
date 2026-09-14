@@ -383,19 +383,24 @@ export function Header({ title, onMenuClick }: HeaderProps) {
 
         {translatedTitle && (
           <>
-            {/* Breadcrumb separator — only shown on lg+ where the page
-                title is visible. Subtle chevron so it reads as
-                "ProjectName › PageTitle" hierarchy. */}
+            {/* Breadcrumb separator — only shown on sm+ where the project
+                pill (ProjectSwitcher, itself `hidden sm:block`) is visible.
+                Subtle chevron so it reads as "ProjectName › PageTitle"
+                hierarchy. */}
             <ChevronRight
               size={14}
               strokeWidth={1.75}
-              className="hidden lg:block shrink-0 text-content-quaternary/60"
+              className="hidden sm:block shrink-0 text-content-quaternary/60"
               aria-hidden
             />
-            {/* text-base until xl: at lg widths the right cluster + project
-                pill left too little room and module names truncated to
-                "Estima..." (uniformity sweep S5 follow-up). */}
-            <h1 className="hidden lg:flex items-center gap-2 min-w-0 text-base font-semibold text-content-primary xl:text-lg">
+            {/* Always rendered (was `hidden lg:flex`, which meant phones and
+                small tablets had zero page-name indicator in the header).
+                `min-w-0` + `truncate` let it shrink to whatever room zone 1
+                has left rather than overflow; text-base only from lg — at
+                lg the right cluster + project pill left too little room and
+                module names truncated to "Estima..." (uniformity sweep S5
+                follow-up), so keep it compact below that. */}
+            <h1 className="flex items-center gap-2 min-w-0 text-sm font-semibold text-content-primary lg:text-base xl:text-lg">
               {/* Module icon — mirrors the active route's sidebar icon so the
                   top title is visually tied to the module. Decorative
                   (aria-hidden); absent (no layout shift) when the route has
@@ -911,7 +916,7 @@ function HelpMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1.5 w-60 rounded-xl border border-border-light bg-surface-elevated shadow-lg animate-scale-in py-1 z-40"
+          className="absolute right-0 top-full mt-1.5 w-60 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border-light bg-surface-elevated shadow-lg animate-scale-in py-1 z-40"
         >
           {/* In-app guided explanation of every module - the "How it works"
               hub. Lives first so it is the most discoverable help action. */}
@@ -988,7 +993,7 @@ function LanguageSwitcher({
       </button>
 
       {open && (
-        <div role="menu" className="absolute right-0 top-full mt-1.5 w-48 max-h-72 overflow-y-auto rounded-xl border border-border-light bg-surface-elevated shadow-lg animate-scale-in py-1">
+        <div role="menu" className="absolute right-0 top-full mt-1.5 w-48 max-w-[calc(100vw-1.5rem)] max-h-72 overflow-y-auto rounded-xl border border-border-light bg-surface-elevated shadow-lg animate-scale-in py-1">
           {SUPPORTED_LANGUAGES.map((lang) => (
             <button
               key={lang.code}
@@ -1210,9 +1215,24 @@ function UserMenu() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const userEmail = useAuthStore((s) => s.userEmail);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const userInitial = userEmail ? userEmail.charAt(0).toUpperCase() : 'U';
+
+  const cycleTheme = () => {
+    if (theme === 'light') setTheme('dark');
+    else if (theme === 'dark') setTheme('system');
+    else setTheme('light');
+  };
+  const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
+  const themeLabel =
+    theme === 'light'
+      ? t('settings.theme_light', { defaultValue: 'Light theme' })
+      : theme === 'dark'
+        ? t('settings.theme_dark', { defaultValue: 'Dark theme' })
+        : t('settings.theme_system', { defaultValue: 'System theme' });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1267,7 +1287,7 @@ function UserMenu() {
       </button>
 
       {open && (
-        <div role="menu" className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-border-light bg-surface-elevated shadow-lg animate-scale-in py-1">
+        <div role="menu" className="absolute right-0 top-full mt-1.5 w-48 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border-light bg-surface-elevated shadow-lg animate-scale-in py-1">
           {userEmail && (
             <>
               <div className="px-3 py-1.5 text-2xs text-content-tertiary truncate" title={userEmail}>
@@ -1291,6 +1311,26 @@ function UserMenu() {
           >
             <Settings size={14} className="text-content-tertiary" />
             {t('nav.settings', 'Settings')}
+          </button>
+          {/* Theme + Help — only shown here below `sm`, where their standalone
+              header icon-buttons (ThemeToggle / HelpMenu) are hidden for
+              space. Above `sm` those toolbar buttons are visible instead, so
+              this block would just duplicate them there. */}
+          <button
+            role="menuitem"
+            onClick={() => { cycleTheme(); }}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors sm:hidden"
+          >
+            <ThemeIcon size={14} className="text-content-tertiary" />
+            {themeLabel}
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => { setOpen(false); navigate('/how-it-works'); }}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors sm:hidden"
+          >
+            <GraduationCap size={14} className="text-content-tertiary" />
+            {t('howto.menu_item', { defaultValue: 'How it works' })}
           </button>
           <div className="my-1 border-t border-border-light" role="separator" />
           <button
@@ -1549,7 +1589,7 @@ function ProjectSwitcher() {
       </div>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 z-50 w-72 rounded-xl border border-border bg-surface-elevated shadow-xl overflow-hidden animate-fade-in">
+        <div className="absolute top-full left-0 mt-1.5 z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-surface-elevated shadow-xl overflow-hidden animate-fade-in">
           <div className="px-4 py-2.5 border-b border-border-light bg-surface-secondary/50">
             <p className="text-xs font-semibold text-content-secondary">
               {t('schedule.switch_project', { defaultValue: 'Switch Project' })}
@@ -1720,7 +1760,7 @@ function UploadQueueIndicator() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border-light bg-surface-elevated shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border-light bg-surface-elevated shadow-xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-light">
             <h3 className="text-xs font-semibold text-content-primary">
               {t('queue.title', { defaultValue: 'Processing Queue' })}

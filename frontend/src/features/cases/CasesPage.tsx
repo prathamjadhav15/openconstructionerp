@@ -633,30 +633,50 @@ function CasesList() {
           aria-hidden="true"
           className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-oe-blue/10 blur-3xl"
         />
-        <div className="relative flex items-start gap-3">
-          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-oe-blue/15 text-oe-blue ring-1 ring-inset ring-oe-blue/25">
-            <Route size={22} strokeWidth={1.9} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight text-content-primary">
-                {t("cases.page_title", { defaultValue: "Cases" })}
-              </h1>
-              {allPlaybooks.length > 0 && (
-                <span className="inline-flex items-center rounded-full bg-oe-blue/10 px-2 py-0.5 text-2xs font-semibold text-oe-blue ring-1 ring-inset ring-oe-blue/20">
-                  {t("cases.header.count", {
-                    defaultValue: "{{count}} guided cases",
-                    count: allPlaybooks.length,
-                  })}
-                </span>
-              )}
+        {/*
+          Below `sm` this stacks instead of sharing one non-wrapping row with
+          the button cluster. That row had no `flex-wrap`, and the button
+          cluster is `w-full` (meant for its OWN internal mobile stacking,
+          see below) + `shrink-0` — a flex item with `width:100%` resolves
+          its flex-basis against the row's full content box regardless of
+          siblings, so it demanded the entire row width with no give. The
+          title block (`min-w-0 flex-1`, and unlike the dashboard's version
+          of this pattern, not even `truncate`) got flex-shrunk to a sliver
+          for layout purposes while its text kept painting at natural size,
+          so it visually rendered UNDER the button cluster that follows it
+          in paint order (reproduced in DevTools at an iPhone SE viewport:
+          "Cases" and its chip peeking out from behind "Write your own
+          case"). `sm:contents` on the icon+title wrapper removes it from
+          the box model at `sm:`+, so its children rejoin the row as direct
+          flex items there and the original side-by-side layout is
+          unchanged from `sm:` up; only narrower viewports change.
+        */}
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
+          <div className="flex items-start gap-3 sm:contents">
+            <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-oe-blue/15 text-oe-blue ring-1 ring-inset ring-oe-blue/25">
+              <Route size={22} strokeWidth={1.9} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-semibold tracking-tight text-content-primary">
+                  {t("cases.page_title", { defaultValue: "Cases" })}
+                </h1>
+                {allPlaybooks.length > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-oe-blue/10 px-2 py-0.5 text-2xs font-semibold text-oe-blue ring-1 ring-inset ring-oe-blue/20">
+                    {t("cases.header.count", {
+                      defaultValue: "{{count}} guided cases",
+                      count: allPlaybooks.length,
+                    })}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-content-secondary">
+                {t("cases.page_subtitle", {
+                  defaultValue:
+                    "Guided, end-to-end playbooks that walk you through several modules in order. Pick a case, optionally choose a sample project to learn on, and follow each step.",
+                })}
+              </p>
             </div>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-content-secondary">
-              {t("cases.page_subtitle", {
-                defaultValue:
-                  "Guided, end-to-end playbooks that walk you through several modules in order. Pick a case, optionally choose a sample project to learn on, and follow each step.",
-              })}
-            </p>
           </div>
           {/* The catalogue is not only ours: a user writes their own case the
               way their firm actually works, and it then lives in this same hub

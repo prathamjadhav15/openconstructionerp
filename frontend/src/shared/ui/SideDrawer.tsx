@@ -58,6 +58,23 @@ import clsx from 'clsx';
 import { useFocusTrap } from '@/shared/hooks/useFocusTrap';
 import { useTranslation } from 'react-i18next';
 
+// Tailwind's JIT scanner only emits CSS for utility classes that appear as
+// a literal string in source — a runtime-built class like `sm:${widthClass}`
+// is invisible to it, so the `sm:` variant silently never lands in the
+// bundle. This map gives every `widthClass` value currently passed by
+// callers (plus the rest of the standard max-w scale) a matching literal
+// `sm:` class to look up instead of interpolating one.
+const SM_WIDTH_CLASSES: Record<string, string> = {
+  'max-w-xs': 'sm:max-w-xs',
+  'max-w-sm': 'sm:max-w-sm',
+  'max-w-md': 'sm:max-w-md',
+  'max-w-lg': 'sm:max-w-lg',
+  'max-w-xl': 'sm:max-w-xl',
+  'max-w-2xl': 'sm:max-w-2xl',
+  'max-w-3xl': 'sm:max-w-3xl',
+  'max-w-4xl': 'sm:max-w-4xl',
+};
+
 export interface SideDrawerProps {
   /** Controls whether the drawer is rendered. */
   open: boolean;
@@ -234,7 +251,7 @@ export function SideDrawer({
           'relative h-full w-full sm:w-auto',
           // Narrow viewports → full width; sm breakpoint → caller's
           // configured width with sane fallback.
-          `sm:${widthClass}`,
+          SM_WIDTH_CLASSES[widthClass] ?? widthClass,
           widthClass, // also apply unprefixed so the panel never exceeds it
           'overflow-y-auto bg-surface-elevated shadow-xl',
           'transform transition-transform duration-250 ease-out',

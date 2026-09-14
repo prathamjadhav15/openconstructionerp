@@ -67,7 +67,7 @@ export function FloatingQueuePanel() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl bg-surface-elevated border border-border-light shadow-xl overflow-hidden animate-fade-in">
+    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[20rem] rounded-xl bg-surface-elevated border border-border-light shadow-xl overflow-hidden animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-surface-secondary/50 border-b border-border-light">
         <div className="flex items-center gap-2">

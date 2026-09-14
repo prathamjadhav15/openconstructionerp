@@ -120,18 +120,24 @@ export function ProjectJourneyButton() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={label}
         data-testid="project-journey-button"
         title={t('journey.button.title', {
           defaultValue: 'Project journey - see where you are and what comes next',
         })}
         className={clsx(
-          'flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5',
+          'flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2 sm:px-2.5',
           'border-border-light bg-white/70 text-content-secondary shadow-sm dark:bg-surface-primary/60',
           'transition-colors hover:border-oe-blue/40 hover:bg-oe-blue/5 hover:text-content-primary',
         )}
       >
         <RouteIcon size={14} strokeWidth={1.75} className="shrink-0 text-oe-blue" aria-hidden />
-        <span className="whitespace-nowrap text-xs font-semibold">{label}</span>
+        {/* Text label collapses below `sm` — at 7 always-visible controls sharing
+            ~340px of header width on a 375px phone, this 136px pill alone was
+            enough to push the account menu off-screen (measured, not guessed:
+            zone3 needed 383px against ~343px available). Icon + chevron stays
+            as a compact affordance; the full label returns once there's room. */}
+        <span className="hidden whitespace-nowrap text-xs font-semibold sm:inline">{label}</span>
         <ChevronDown size={12} strokeWidth={2} className="shrink-0 text-content-quaternary" aria-hidden />
       </button>
       {open && (
