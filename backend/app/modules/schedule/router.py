@@ -44,6 +44,7 @@ from app.core.validation.messages import translate
 from app.dependencies import CurrentUserId, CurrentUserPayload, RequirePermission, SessionDep, verify_project_access
 from app.modules.schedule.schemas import (
     ActivityBimLinkRequest,
+    ActivityCountResponse,
     ActivityCreate,
     ActivityListResponse,
     ActivityResponse,
@@ -396,6 +397,31 @@ async def list_activities(
         offset=offset,
         limit=limit,
     )
+
+
+@router.get(
+    "/schedules/{schedule_id}/activities/count/",
+    response_model=ActivityCountResponse,
+    summary="Count activities",
+    dependencies=[Depends(RequirePermission("schedule.read"))],
+)
+async def count_activities(
+    schedule_id: uuid.UUID,
+    _user_id: CurrentUserId,
+    payload: CurrentUserPayload,
+    session: SessionDep,
+    service: ScheduleService = Depends(_get_service),
+) -> ActivityCountResponse:
+    """Total activity count for a schedule - a count query, no rows.
+
+    Lets a lazy-loading client (grid, badge) learn how many activities a
+    schedule has without paying for ``list_activities`` to select and
+    serialize every row just to read ``total``. Same ownership check as
+    ``list_activities`` so it discloses nothing ``list_activities`` would not.
+    """
+    await _verify_schedule_owner(service, session, schedule_id, _user_id, payload)
+    total = await service.count_activities_for_schedule(schedule_id)
+    return ActivityCountResponse(schedule_id=schedule_id, total=total)
 
 
 @router.delete(

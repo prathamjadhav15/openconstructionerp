@@ -13,6 +13,9 @@ import { fmtList } from '@/shared/lib/formatters';
 
 const TYPES = ['task', 'milestone', 'summary'] as const;
 
+/** Rows rendered (and fanned out to per-row assignment queries) per lazy-load batch. */
+const PAGE_SIZE = 20;
+
 const CELL_INPUT_CLS =
   'w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-content-primary ' +
   'hover:border-border-light focus:border-oe-blue focus:bg-surface-primary focus:outline-none disabled:opacity-60';
@@ -76,6 +79,33 @@ export function ActivityGrid({
   const invalidateGantt = () =>
     queryClient.invalidateQueries({ queryKey: ['gantt', scheduleId] });
 
+  // Lazy loading: the grid was handed the whole (filtered) schedule - since
+  // the 1000-row cap on schedule reads was removed, that can now be several
+  // thousand activities. Rendering every row (and firing every row's
+  // assignment query below) at once is what made large schedules slow to
+  // open. Only mount the first `visibleCount` rows; "Load more" grows it in
+  // PAGE_SIZE steps instead of all at once. This does not change what data
+  // was fetched (still the full `activities` array from the caller) - it
+  // only bounds what gets rendered and fanned out to per-row queries.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const visibleActivities = useMemo(
+    () => activities.slice(0, visibleCount),
+    [activities, visibleCount],
+  );
+  const hasMore = visibleCount < activities.length;
+
+  // The header count API (#lazy-loading): a dedicated count-only endpoint so
+  // the toolbar can show the schedule's true total without paying for
+  // `list_for_schedule`/`get_gantt_data` to select every row - it is a
+  // COUNT(*) query server-side. Falls back to the length of what the parent
+  // already fetched if the call fails, so the toolbar never breaks.
+  const { data: countData } = useQuery({
+    queryKey: ['schedule-activities-count', scheduleId],
+    queryFn: () => scheduleApi.getActivitiesCount(scheduleId),
+    staleTime: 30_000,
+  });
+  const totalCount = countData?.total ?? activities.length;
+
   // #348: the project's named work calendars, for the per-row calendar picker.
   // Keyed by projectId so the picker and the WorkCalendarManager share a cache.
   const { data: calendars = [] } = useQuery({
@@ -86,11 +116,12 @@ export function ActivityGrid({
 
   // Who is booked on each activity, fanned out through ``useQueries``.
   //
-  // One request per activity in the list this grid was handed, which is the
-  // whole filtered schedule and not a page of it: a six-hundred-activity
-  // schedule issues six hundred requests, six at a time through the browser's
-  // per-host cap. That is the cost, stated plainly rather than hidden behind
-  // the word "visible".
+  // One request per *rendered* row, not per activity the grid was handed -
+  // ``visibleActivities`` is the lazy-loaded slice, so this fan-out is capped
+  // at PAGE_SIZE requests at a time regardless of how large the schedule is.
+  // Loading more rows loads more assignment requests along with them, six at
+  // a time through the browser's per-host cap. That is the cost, stated
+  // plainly rather than hidden behind the word "visible".
   //
   // It is still the honest read. The only project-wide assignment list the API
   // offers is the dispatcher board, and the board is keyed by resource: it
@@ -104,7 +135,7 @@ export function ActivityGrid({
   // project-scoped by-activity list on the backend, which does not exist yet.
   const assignmentQueries = useQueries({
     queries: projectId
-      ? activities.map((a) => ({
+      ? visibleActivities.map((a) => ({
           queryKey: ['resources', 'by-activity', a.id, projectId],
           queryFn: () => listAssignmentsForActivity(a.id, { project_id: projectId }),
           staleTime: 60_000,
@@ -285,6 +316,12 @@ export function ActivityGrid({
             defaultValue:
               'Edit names, dates and types inline. Duration is working days and updates automatically.',
           })}
+          {' · '}
+          {t('schedule.grid_showing_count', {
+            defaultValue: 'Showing {{shown}} of {{total}}',
+            shown: visibleActivities.length,
+            total: totalCount,
+          })}
         </span>
         <div className="flex items-center gap-2">
           <Button
@@ -333,7 +370,7 @@ export function ActivityGrid({
             </tr>
           </thead>
           <tbody>
-            {activities.length === 0 ? (
+            {visibleActivities.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
@@ -345,7 +382,7 @@ export function ActivityGrid({
                 </td>
               </tr>
             ) : (
-              activities.map((a, rowIdx) => {
+              visibleActivities.map((a, rowIdx) => {
                 const isCritical = criticalActivityIds?.has(a.id) ?? false;
                 const depCount = a.dependencies?.length ?? 0;
                 const isMilestone = a.activity_type === 'milestone';
@@ -511,6 +548,22 @@ export function ActivityGrid({
           </tbody>
         </table>
       </div>
+
+      {hasMore && (
+        <div className="flex items-center justify-center border-t border-border-light bg-surface-secondary/20 px-3 py-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            data-testid="grid-load-more"
+            onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+          >
+            {t('schedule.grid_load_more', {
+              defaultValue: 'Load {{count}} more',
+              count: Math.min(PAGE_SIZE, activities.length - visibleCount),
+            })}
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

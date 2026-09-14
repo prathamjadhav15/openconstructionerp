@@ -132,6 +132,19 @@ class ActivityRepository:
 
         return activities, total
 
+    async def count_for_schedule(self, schedule_id: uuid.UUID) -> int:
+        """Count activities for a schedule without fetching any rows.
+
+        Backs the standalone activity-count endpoint: a client that only
+        needs "how many" (a header badge, a lazy-loading grid deciding
+        whether there is a next page) should not pay for ``list_for_schedule``
+        selecting and deserializing every row just to read ``total``.
+        """
+        count_stmt = select(func.count()).select_from(
+            select(Activity.id).where(Activity.schedule_id == schedule_id).subquery()
+        )
+        return (await self.session.execute(count_stmt)).scalar_one()
+
     async def create(self, activity: Activity) -> Activity:
         """Insert a new activity."""
         self.session.add(activity)

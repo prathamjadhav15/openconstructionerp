@@ -376,6 +376,19 @@ class ActivityListResponse(BaseModel):
     limit: int = 1000
 
 
+class ActivityCountResponse(BaseModel):
+    """Just the activity count for a schedule - no rows.
+
+    Backs a lazy-loading activity grid: the client asks "how many" up
+    front (cheap, count-only query) and then pages through ``items`` via
+    :class:`ActivityListResponse` as the viewer scrolls, instead of paying
+    for the whole schedule's rows on first render.
+    """
+
+    schedule_id: UUID
+    total: int = 0
+
+
 class LinkPositionRequest(BaseModel):
     """Request body for linking a BOQ position to an activity."""
 

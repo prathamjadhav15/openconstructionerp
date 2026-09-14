@@ -29939,6 +29939,8 @@ const resource = {
     "schedule.reschedule_tooltip": "Recompute dates from the dependency network (CPM). Activities with predecessors move; roots keep their manual start.",
     "schedule.reschedule": "Reschedule",
     "schedule.grid_empty": "No activities match the current filter.",
+    "schedule.grid_showing_count": "Showing {{shown}} of {{total}}",
+    "schedule.grid_load_more": "Load {{count}} more",
     "schedule.days_short": "d",
     "schedule.edit_predecessors": "Edit predecessors",
     "schedule.add_predecessor": "Add predecessor",

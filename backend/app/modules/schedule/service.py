@@ -1011,6 +1011,10 @@ class ScheduleService:
         """List activities for a schedule ordered by sort_order."""
         return await self.activity_repo.list_for_schedule(schedule_id, offset=offset, limit=limit)
 
+    async def count_activities_for_schedule(self, schedule_id: uuid.UUID) -> int:
+        """Total activity count for a schedule, without fetching any rows."""
+        return await self.activity_repo.count_for_schedule(schedule_id)
+
     async def _reject_dependency_cycles(
         self,
         *,

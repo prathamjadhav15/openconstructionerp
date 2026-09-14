@@ -841,6 +841,11 @@ export const scheduleApi = {
   // Activities
   getGantt: (scheduleId: string) =>
     apiGet<GanttData>(`/v1/schedule/schedules/${scheduleId}/gantt/`),
+  /** Just the activity count for a schedule - a count query, no rows. */
+  getActivitiesCount: (scheduleId: string) =>
+    apiGet<{ schedule_id: string; total: number }>(
+      `/v1/schedule/schedules/${scheduleId}/activities/count/`,
+    ),
   createActivity: (scheduleId: string, data: Partial<Activity>) =>
     apiPost<Activity>(`/v1/schedule/schedules/${scheduleId}/activities/`, data),
   updateActivity: (activityId: string, data: Partial<Activity>) =>

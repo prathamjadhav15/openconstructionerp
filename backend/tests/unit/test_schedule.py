@@ -109,10 +109,11 @@ class _StubActivityRepo:
         schedule_id: uuid.UUID,
         *,
         offset: int = 0,
-        limit: int = 1000,
+        limit: int | None = 1000,
     ) -> tuple[list[Any], int]:
         rows = [r for r in self.rows.values() if r.schedule_id == schedule_id]
-        return rows[offset : offset + limit], len(rows)
+        page = rows[offset:] if limit is None else rows[offset : offset + limit]
+        return page, len(rows)
 
     async def update_fields(self, activity_id: uuid.UUID, **kwargs: Any) -> None:
         a = self.rows.get(activity_id)

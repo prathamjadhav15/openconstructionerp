@@ -111,10 +111,42 @@ const UNAVAILABLE: Use4dTimelineResult = {
  *  enough to be satisfying, slow enough to see transitions. */
 const MS_PER_DAY = 86_400_000;
 
+/** Activities per page while paginating a single schedule below. The
+ *  endpoint defaults to (and previously was called with) 1000, which is
+ *  also its silent truncation point — a schedule with more activities than
+ *  that lost every activity past #1000 from the 4D bounds and the
+ *  element→activity index, with nothing in the UI signalling the gap. */
+const ACTIVITIES_PAGE_SIZE = 1000;
+
+/** Page through one schedule's activities until every row behind `total`
+ *  has been fetched, instead of trusting a single page. The 4D scrubber
+ *  computes the timeline's [start, end] bounds and its element→activity
+ *  index from this set, so a partial fetch does not fail loudly — it just
+ *  quietly shrinks the timeline and drops late activities from the index. */
+async function fetchActivitiesForSchedule(scheduleId: string): Promise<ScheduleActivity[]> {
+  const items: ScheduleActivity[] = [];
+  let offset = 0;
+  for (;;) {
+    const page = await apiGet<Page<ScheduleActivity>>(
+      `/v1/schedule/schedules/${encodeURIComponent(scheduleId)}/activities/?offset=${offset}&limit=${ACTIVITIES_PAGE_SIZE}`,
+    );
+    const pageItems = page.items ?? [];
+    items.push(...pageItems);
+    offset += pageItems.length;
+    // Stop on an empty page too, so a `total` that disagrees with the
+    // server's actual row count (a stale count, a race with a delete)
+    // can't spin this into an infinite loop.
+    if (pageItems.length === 0 || offset >= page.total) break;
+  }
+  return items;
+}
+
 /** Fetch every schedule for the project in one batch, then fan out to
- *  fetch activities for each schedule.  Parallelised via `Promise.all`.
- *  Kept inside the hook file so module boundaries stay tidy — this is
- *  not a reusable fetch layer, it's specific to the 4D scrubber. */
+ *  fetch activities for each schedule.  Parallelised via `Promise.all`;
+ *  each schedule's own activities are paginated in full (see
+ *  `fetchActivitiesForSchedule`). Kept inside the hook file so module
+ *  boundaries stay tidy — this is not a reusable fetch layer, it's
+ *  specific to the 4D scrubber. */
 async function fetchAllActivities(projectId: string): Promise<ScheduleActivity[]> {
   const schedules = await apiGet<Page<ScheduleSummary>>(
     `/v1/schedule/schedules/?project_id=${encodeURIComponent(projectId)}`,
@@ -125,10 +157,7 @@ async function fetchAllActivities(projectId: string): Promise<ScheduleActivity[]
   const results = await Promise.all(
     schedList.map(async (sched) => {
       try {
-        const acts = await apiGet<Page<ScheduleActivity>>(
-          `/v1/schedule/schedules/${encodeURIComponent(sched.id)}/activities/`,
-        );
-        return acts.items ?? [];
+        return await fetchActivitiesForSchedule(sched.id);
       } catch {
         // Individual schedule failure is non-fatal — we may still have
         // actionable data in the other schedules.  Log at debug only to
