@@ -804,6 +804,9 @@ class UserService:
         if user is not None:
             if not user.is_active:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account_inactive")
+
+            updates: dict[str, object] = {}
+
             meta = dict(user.metadata_ or {})
             if not meta.get("sso"):
                 meta["sso"] = {
@@ -811,7 +814,21 @@ class UserService:
                     "subject": userinfo.subject,
                     "linked_at": datetime.now(UTC).isoformat(),
                 }
-                await self.user_repo.update_fields(user.id, metadata_=meta)
+                updates["metadata_"] = meta
+
+            # Frappe is the source of truth for this identity on every SSO
+            # login, not just the first one - refresh full_name/avatar_url
+            # so a name or picture changed on the IdP side (or a blank name
+            # from an earlier login that fell back to the email
+            # local-part) is picked up here instead of staying stuck at
+            # whatever was true the first time this person signed in.
+            if userinfo.full_name and userinfo.full_name != user.full_name:
+                updates["full_name"] = userinfo.full_name
+            if userinfo.avatar_url and userinfo.avatar_url != user.avatar_url:
+                updates["avatar_url"] = userinfo.avatar_url
+
+            if updates:
+                await self.user_repo.update_fields(user.id, **updates)
             return user
 
         mode = getattr(self.settings, "registration_mode", "admin-approve") or "admin-approve"
@@ -834,6 +851,7 @@ class UserService:
             # password-reset flow both treat this account as SSO-only.
             hashed_password=hash_password(secrets.token_urlsafe(32)),
             full_name=userinfo.full_name or email.split("@")[0],
+            avatar_url=userinfo.avatar_url,
             role=role,
             is_active=True,
             metadata_={

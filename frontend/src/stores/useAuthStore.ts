@@ -44,6 +44,13 @@ interface AuthState {
    */
   userFullName: string | null;
   /**
+   * The signed-in user's profile picture URL, when they have one (e.g. set
+   * via Frappe SSO's ``picture``/``user_image`` claim). Populated and
+   * persisted the same way as {@link userFullName}. ``null`` when the
+   * account has no picture, in which case the UI falls back to an initial.
+   */
+  userAvatarUrl: string | null;
+  /**
    * The authoritative role for the current user, sourced from the live
    * `/v1/users/me/` response after login / page load.
    *
@@ -80,6 +87,7 @@ const KEY_REFRESH = 'oe_refresh_token';
 const KEY_REMEMBER = 'oe_remember';
 const KEY_EMAIL = 'oe_user_email';
 const KEY_FULL_NAME = 'oe_user_full_name';
+const KEY_AVATAR_URL = 'oe_user_avatar_url';
 
 /** Read the stored refresh token from either storage tier. */
 function getStoredRefreshToken(): string | null {
@@ -99,6 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   userEmail: null,
   userFullName: null,
+  userAvatarUrl: null,
   userRole: null,
 
   setTokens: (access, refresh, remember = false, email) => {
@@ -120,10 +129,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.setItem(KEY_REFRESH, refresh);
     }
     if (email) localStorage.setItem(KEY_EMAIL, email);
-    // The login response carries only the email; the display name arrives via
-    // syncRoleFromServer(). Clear any persisted name from a previous session
-    // so a different user's name never briefly leaks into the greeting.
+    // The login response carries only the email; the display name and
+    // avatar arrive via syncRoleFromServer(). Clear any persisted values
+    // from a previous session so a different user's name/picture never
+    // briefly leaks into the greeting.
     localStorage.removeItem(KEY_FULL_NAME);
+    localStorage.removeItem(KEY_AVATAR_URL);
     // On a genuine account switch, drop the previous user's per-browser
     // onboarding fast-path flag. It is set once the dashboard confirms the
     // signed-in user completed onboarding, but it is not scoped per account, so
@@ -140,6 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: true,
       userEmail: email ?? null,
       userFullName: null,
+      userAvatarUrl: null,
       userRole: decodeRoleFromToken(access),
     });
   },
@@ -150,6 +162,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem(KEY_REMEMBER);
     localStorage.removeItem(KEY_EMAIL);
     localStorage.removeItem(KEY_FULL_NAME);
+    localStorage.removeItem(KEY_AVATAR_URL);
     sessionStorage.removeItem(KEY_ACCESS);
     sessionStorage.removeItem(KEY_REFRESH);
     // Desktop builds auto-bootstrap a local owner on /login. A deliberate
@@ -166,6 +179,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
       userEmail: null,
       userFullName: null,
+      userAvatarUrl: null,
       userRole: null,
     });
   },
@@ -175,6 +189,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.getItem(KEY_ACCESS) || sessionStorage.getItem(KEY_ACCESS);
     const email = localStorage.getItem(KEY_EMAIL);
     const fullName = localStorage.getItem(KEY_FULL_NAME);
+    const avatarUrl = localStorage.getItem(KEY_AVATAR_URL);
     set({
       accessToken: token,
       isAuthenticated: Boolean(token),
@@ -182,6 +197,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Hydrate the cached display name so the greeting shows the real name on
       // first paint after a reload; syncRoleFromServer refreshes it from the DB.
       userFullName: fullName,
+      userAvatarUrl: avatarUrl,
       // Pre-populate from JWT so the UI renders immediately; syncRoleFromServer
       // will overwrite with the authoritative DB value shortly after.
       userRole: decodeRoleFromToken(token),
@@ -200,6 +216,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role?: string;
         email?: string;
         full_name?: string;
+        avatar_url?: string | null;
       };
       if (typeof data.role === 'string') {
         set({ userRole: data.role });
@@ -216,6 +233,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         set({ userFullName: fullName });
       }
+      // Same treatment for the profile picture. An account with no picture
+      // sends back null/absent, in which case any stale cached URL from a
+      // previous account must be cleared too, not just left in place.
+      const avatarUrl = (data.avatar_url ?? '').trim();
+      try {
+        if (avatarUrl) {
+          localStorage.setItem(KEY_AVATAR_URL, avatarUrl);
+        } else {
+          localStorage.removeItem(KEY_AVATAR_URL);
+        }
+      } catch {
+        // storage unavailable -- the in-memory value below still applies.
+      }
+      set({ userAvatarUrl: avatarUrl || null });
     } catch {
       // Network failure — keep the JWT-decoded role as best-effort fallback.
     }

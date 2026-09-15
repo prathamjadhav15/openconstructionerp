@@ -25,6 +25,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    # Profile picture URL. Populated from the IdP's "picture" claim on Frappe
+    # SSO login (see app/modules/sso/oauth.py's FrappeUserInfo); NULL for a
+    # locally-registered account until a future avatar-upload feature exists.
+    avatar_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="editor")
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="en")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

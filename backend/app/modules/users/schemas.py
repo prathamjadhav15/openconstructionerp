@@ -340,6 +340,7 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     full_name: str
+    avatar_url: str | None = None
     role: str
     locale: str
     is_active: bool

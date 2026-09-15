@@ -57,6 +57,7 @@ class FrappeUserInfo:
     subject: str
     email: str
     full_name: str
+    avatar_url: str | None = None
 
 
 def allowlist_hosts(config: FrappeSsoConfig) -> list[str]:
@@ -252,7 +253,18 @@ async def fetch_userinfo(config: FrappeSsoConfig, frappe_access_token: str) -> F
     subject = str(data.get("sub") or email)
     if not email:
         raise FrappeSsoError("idp_no_email", "Frappe userinfo response has no email claim")
-    return FrappeUserInfo(subject=subject, email=email, full_name=full_name)
+
+    # Standard OIDC calls this claim "picture"; Frappe's own admin UI calls
+    # the underlying field "user_image", and either name has been seen in
+    # the wild depending on Frappe version, so both are checked.
+    avatar_url = (data.get("picture") or data.get("user_image") or "").strip() or None
+    if avatar_url and not avatar_url.lower().startswith(("http://", "https://")):
+        # Frappe often returns a site-relative path (e.g. "/files/x.jpg")
+        # rather than an absolute URL - resolve it against the configured
+        # Frappe base_url so the frontend can load it directly.
+        avatar_url = f"{config.base_url.rstrip('/')}/{avatar_url.lstrip('/')}"
+
+    return FrappeUserInfo(subject=subject, email=email, full_name=full_name, avatar_url=avatar_url)
 
 
 async def ping(config: FrappeSsoConfig) -> None:

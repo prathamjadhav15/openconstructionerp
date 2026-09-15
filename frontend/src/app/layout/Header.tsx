@@ -14,7 +14,6 @@ import { useThemeStore } from '@/stores/useThemeStore';
 import { ActivePackChip, CountryFlag, ModuleInfoButton, PartnerLogoBadge } from '@/shared/ui';
 import { usePartnerPack } from '@/shared/hooks/usePartnerPack';
 import { NotificationBell } from '@/shared/ui/NotificationBell';
-import { HeaderNewsButton } from '@/shared/ui/HeaderNewsButton';
 import { ModuleBuilderButton } from '@/features/module-builder';
 import { apiGet } from '@/shared/lib/api';
 import { copyToClipboard } from '@/shared/lib/browser';
@@ -498,7 +497,6 @@ export function Header({ title, onMenuClick }: HeaderProps) {
 
         {/* ── Zone 3 (Notifications + Help) ────────────────────────── */}
         <NotificationBell />
-        <HeaderNewsButton />
         {/* Building a module is something you do from wherever you noticed the
             platform was missing one, so it lives here rather than in the
             sidebar. Renders nothing for anyone who may not install one. */}
@@ -1210,9 +1208,18 @@ function UserMenu() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const userEmail = useAuthStore((s) => s.userEmail);
+  const userFullName = useAuthStore((s) => s.userFullName);
+  const userAvatarUrl = useAuthStore((s) => s.userAvatarUrl);
   const [open, setOpen] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const userInitial = userEmail ? userEmail.charAt(0).toUpperCase() : 'U';
+  // Prefer the display name's initial over the email's: they can start with
+  // different letters (an SSO account's email local-part is frequently a
+  // username, not the person's name), and the name is what the menu right
+  // below this button already shows.
+  const nameForInitial = userFullName?.trim() || userEmail || '';
+  const userInitial = nameForInitial ? nameForInitial.charAt(0).toUpperCase() : 'U';
+  const showAvatarImage = Boolean(userAvatarUrl) && !avatarLoadFailed;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1231,6 +1238,12 @@ function UserMenu() {
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
+  // A new URL deserves a fresh attempt — don't let a previous account's
+  // broken image permanently blank out this one's real picture.
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [userAvatarUrl]);
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -1239,7 +1252,7 @@ function UserMenu() {
         aria-haspopup="true"
         className={clsx(
           'relative flex h-8 w-8 items-center justify-center rounded-full',
-          'bg-gradient-to-br from-oe-blue to-[#38bdf8] text-xs font-semibold text-white',
+          !showAvatarImage && 'bg-gradient-to-br from-oe-blue to-[#38bdf8] text-xs font-semibold text-white',
           'shadow-[0_1px_3px_rgba(0,122,255,0.25)]',
           'transition-all duration-fast ease-oe',
           'hover:opacity-90 hover:shadow-[0_2px_6px_rgba(0,122,255,0.35)]',
@@ -1247,7 +1260,17 @@ function UserMenu() {
         title={userEmail ?? undefined}
         aria-label={t('auth.account', { defaultValue: 'Account menu' })}
       >
-        {userInitial}
+        {showAvatarImage ? (
+          <img
+            src={userAvatarUrl ?? undefined}
+            alt=""
+            aria-hidden
+            className="h-full w-full rounded-full object-cover"
+            onError={() => setAvatarLoadFailed(true)}
+          />
+        ) : (
+          userInitial
+        )}
         {/* Online status dot — bottom-right of the avatar. Matches the
             UserBadge in the sidebar so the two surfaces feel coherent.
             `overflow-hidden` clips the `animate-ping` ring to this badge's
